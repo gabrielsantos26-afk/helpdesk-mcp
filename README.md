@@ -70,6 +70,32 @@ python -m pytest
 No Windows PowerShell, ative o ambiente com
 `.venv\Scripts\Activate.ps1` e execute `python -m pytest`.
 
+## Interface Streamlit
+
+Instale ou atualize as dependencias do ambiente:
+
+```bash
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+```
+
+Inicie a aplicacao a partir da raiz do projeto:
+
+```bash
+streamlit run app/app.py
+```
+
+A interface usa o cliente `fastmcp` via transporte stdio para chamar
+`servidor.py`; ela nao acessa o SQLite diretamente. Exemplos para testar as
+tools no chat:
+
+- `listar`
+- `listar abertos`
+- `historico do cliente 101`
+- `alterar chamado 1 para em_andamento`
+- `alterar chamado 1 para fechado`
+- `alterar chamado 99999 para aberto` (chamado inexistente)
+
 ## Especificacoes
 
 - [`specs/missao.md`](specs/missao.md): objetivo e limites do projeto.
