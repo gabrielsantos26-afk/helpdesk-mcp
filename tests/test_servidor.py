@@ -38,7 +38,7 @@ def test_inicializacao_cria_banco_e_semeia_tres_status(tmp_path):
     assert {registro[4] for registro in registros} == set(servidor.STATUS_PERMITIDOS)
 
 
-def test_inicializacao_semeia_tabela_existente_vazia(tmp_path):
+def test_inicializacao_semeia_tabela_existente_compativel_vazia(tmp_path):
     db_path = tmp_path / "vazio.db"
     with sqlite3.connect(db_path) as conexao:
         conexao.execute(
@@ -48,7 +48,7 @@ def test_inicializacao_semeia_tabela_existente_vazia(tmp_path):
                 cliente_id INTEGER NOT NULL,
                 cliente_nome TEXT NOT NULL,
                 descricao TEXT NOT NULL,
-                status TEXT NOT NULL,
+                status TEXT NOT NULL CHECK (status IN ('aberto', 'em_andamento', 'fechado')),
                 criado_em TEXT NOT NULL,
                 atualizado_em TEXT NOT NULL
             )
@@ -145,6 +145,15 @@ def test_cliente_mcp_descobre_e_chama_tool(monkeypatch, tmp_path):
         env=variaveis_ambiente,
         cwd=str(Path(servidor.__file__).resolve().parent),
     )
+    campos_esperados = {
+        "id",
+        "cliente_id",
+        "cliente_nome",
+        "descricao",
+        "status",
+        "criado_em",
+        "atualizado_em",
+    }
 
     async def verificar_cliente():
         async with Client(transporte) as cliente:
@@ -152,6 +161,26 @@ def test_cliente_mcp_descobre_e_chama_tool(monkeypatch, tmp_path):
             assert any(tool.name == "listar_chamados" for tool in tools)
             resultado = await cliente.call_tool("listar_chamados", {})
             assert len(resultado.data) == 3
+            assert all(set(chamado) == campos_esperados for chamado in resultado.data)
+
+            for status in servidor.STATUS_PERMITIDOS:
+                filtrados = await cliente.call_tool(
+                    "listar_chamados", {"status": status}
+                )
+                assert filtrados.data
+                assert all(
+                    set(chamado) == campos_esperados
+                    and chamado["status"] == status
+                    for chamado in filtrados.data
+                )
+
+            with sqlite3.connect(db_path) as conexao:
+                conexao.execute("DELETE FROM chamados")
+            sem_correspondencias = await cliente.call_tool(
+                "listar_chamados", {"status": "aberto"}
+            )
+            assert sem_correspondencias.data == []
+
             erro = await cliente.call_tool(
                 "listar_chamados", {"status": "inexistente"}, raise_on_error=False
             )

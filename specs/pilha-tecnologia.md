@@ -4,6 +4,7 @@
 - **Python 3.11+**, com ambiente virtual (`.venv`) e dependências em `requirements.txt`.
 - **fastmcp** para implementar o servidor e expor as tools.
 - **SQLite** (módulo `sqlite3` da biblioteca padrão) para persistir os chamados.
+- Na inicialização, criar a tabela `chamados` conforme o modelo abaixo somente se ela não existir. Bancos preexistentes com esquema diferente não são validados nem migrados.
 - Criação automática do banco e de **registros fictícios** na inicialização,
   somente se o banco ainda não existir ou estiver vazio (sem apagar alterações).
 - Execução local, com transporte MCP **stdio**.

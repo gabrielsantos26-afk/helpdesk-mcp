@@ -14,10 +14,11 @@ A Fase 1 está concluída quando todos os critérios abaixo forem verificados. A
 
 ## Inicialização e persistência
 
-- [ ] Com banco inexistente, a inicialização cria o banco e a tabela `chamados`, e semeia exemplos fictícios que cobrem os três status.
-- [ ] Com banco existente e tabela vazia, a inicialização semeia os exemplos fictícios.
+- [ ] Com banco inexistente, a inicialização cria o banco e, se a tabela `chamados` não existir, cria-a com as colunas e restrições do modelo; depois semeia exemplos fictícios que cobrem os três status.
+- [ ] Com banco existente, tabela vazia e esquema compatível com o modelo, a inicialização semeia os exemplos fictícios.
 - [ ] Com banco já preenchido, a inicialização preserva os registros existentes e não acrescenta exemplos.
 - [ ] Executar a inicialização repetidamente não duplica registros nem apaga alterações existentes.
+- [ ] Bancos preexistentes com esquema diferente não são validados nem migrados; essa situação está fora do escopo e não é considerada uma garantia da inicialização.
 - [ ] Se todos os chamados forem apagados, a tool retorna `[]` até o servidor ser reinicializado; na próxima inicialização, a tabela vazia é semeada novamente com dados fictícios.
 - [ ] O servidor não envia mensagens comuns para `stdout`, mantendo-o disponível para o protocolo MCP stdio.
 

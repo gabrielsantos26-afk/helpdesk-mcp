@@ -30,9 +30,10 @@ A comparação é sensível a maiúsculas/minúsculas e não deve normalizar nem
 
 ## Inicialização do banco e dados fictícios
 
-- Na inicialização do servidor, criar o arquivo do banco, se necessário, e garantir que a tabela `chamados` exista com as colunas e restrições do modelo de dados da Constituição.
-- Inserir registros fictícios somente se a tabela `chamados` estiver vazia após a criação/verificação do esquema. Isso cobre tanto um banco recém-criado quanto um banco existente sem registros.
+- Na inicialização do servidor, criar o arquivo do banco, se necessário, e criar a tabela `chamados` com as colunas e restrições do modelo de dados da Constituição quando ela não existir.
+- Inserir registros fictícios somente se a tabela `chamados` estiver vazia após a criação (se necessária). Isso cobre tanto um banco recém-criado quanto um banco existente sem registros.
 - Se já houver ao menos um registro, não inserir dados fictícios nem apagar ou alterar registros existentes.
+- Bancos preexistentes cuja tabela `chamados` tenha esquema diferente do modelo não são validados nem migrados. Não há garantia de que esses esquemas sejam compatíveis com a aplicação.
 - A regra depende do estado atual da tabela: se todos os chamados forem apagados, a próxima inicialização do servidor encontrará a tabela vazia e recriará os dados fictícios. A consulta não dispara semeadura; enquanto a tabela estiver vazia, retorna `[]`.
 - Os exemplos devem ser inteiramente fictícios, incluir os três status permitidos e permitir testar listagem geral e filtrada. Não usar dados pessoais ou segredos reais.
 - A inicialização e as tools não devem escrever mensagens comuns em `stdout`, reservado ao transporte MCP stdio.
@@ -44,6 +45,7 @@ A comparação é sensível a maiúsculas/minúsculas e não deve normalizar nem
 - Listar com status válido sem correspondências e receber `[]`.
 - Listar quando a tabela está vazia e receber `[]`; após apagar todos os chamados e reinicializar o servidor, confirmar que os dados fictícios são recriados.
 - Rejeitar status desconhecido, com capitalização diferente ou string vazia por meio de `ToolError` do `fastmcp`, com mensagem que lista os status aceitos.
-- Inicializar banco novo e criar esquema e exemplos fictícios.
+- Inicializar banco novo, criar a tabela conforme o modelo e inserir exemplos fictícios.
+- Inicializar banco preexistente com esquema diferente e reconhecer que validação ou migração desse esquema está fora do escopo.
 - Inicializar banco já preenchido e preservar exatamente seus registros, sem semear exemplos.
 - Chamar a tool e confirmar que nenhum dado foi alterado.

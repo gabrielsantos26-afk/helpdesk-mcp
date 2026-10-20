@@ -9,7 +9,8 @@ As tarefas são pequenas e devem ser executadas na ordem abaixo. Não incluir fu
 1. **Definir a base de persistência**
    - Criar a conexão SQLite usando um caminho configurável por variável de ambiente, com um caminho local como padrão.
    - Permitir que os testes definam a variável de ambiente para usar bancos temporários isolados.
-   - Garantir a criação da tabela `chamados` conforme o modelo da Constituição.
+   - Criar a tabela `chamados` com as colunas e restrições do modelo da Constituição somente quando ela não existir.
+   - Tratar validação ou migração de esquemas preexistentes diferentes como fora do escopo.
 
 2. **Implementar inicialização idempotente**
    - Verificar se a tabela está vazia.
