@@ -122,6 +122,78 @@ def test_consulta_sem_correspondencias_retorna_lista_vazia(monkeypatch, tmp_path
     assert servidor.listar_chamados("aberto") == []
 
 
+def test_historico_cliente_retorna_todos_e_somente_seus_chamados(monkeypatch, tmp_path):
+    db_path = configurar_banco_temporario(monkeypatch, tmp_path)
+    servidor.inicializar_banco()
+    antes = ler_todos_os_registros(db_path)
+
+    chamados = servidor.buscar_historico_cliente(101)
+
+    assert len(chamados) == 2
+    assert {chamado["cliente_id"] for chamado in chamados} == {101}
+    assert all(
+        set(chamado)
+        == {
+            "id",
+            "cliente_id",
+            "cliente_nome",
+            "descricao",
+            "status",
+            "criado_em",
+            "atualizado_em",
+        }
+        for chamado in chamados
+    )
+    assert ler_todos_os_registros(db_path) == antes
+
+
+def test_historico_cliente_ordena_empate_por_id(monkeypatch, tmp_path):
+    configurar_banco_temporario(monkeypatch, tmp_path)
+    servidor.inicializar_banco()
+    with sqlite3.connect(servidor.caminho_banco()) as conexao:
+        conexao.execute(
+            "UPDATE chamados SET criado_em = ? WHERE cliente_id = ?",
+            ("2025-02-01T10:00:00+00:00", 101),
+        )
+
+    chamados = servidor.buscar_historico_cliente(101)
+
+    assert [chamado["id"] for chamado in chamados] == sorted(
+        chamado["id"] for chamado in chamados
+    )
+
+
+def test_historico_cliente_sem_chamados_retorna_lista_vazia(monkeypatch, tmp_path):
+    configurar_banco_temporario(monkeypatch, tmp_path)
+    servidor.inicializar_banco()
+
+    assert servidor.buscar_historico_cliente(99999) == []
+    assert servidor.buscar_historico_cliente(0) == []
+    assert servidor.buscar_historico_cliente(-1) == []
+
+
+@pytest.mark.parametrize("cliente_id", [None, True, 2.5, "cliente", "2"])
+def test_cliente_id_invalido_levanta_tool_error_sem_mutacao(
+    monkeypatch, tmp_path, cliente_id
+):
+    db_path = configurar_banco_temporario(monkeypatch, tmp_path)
+    servidor.inicializar_banco()
+    antes = ler_todos_os_registros(db_path)
+
+    with pytest.raises(ToolError, match="inteiro"):
+        servidor.buscar_historico_cliente(cliente_id)
+
+    assert ler_todos_os_registros(db_path) == antes
+
+
+def test_cliente_id_ausente_levanta_tool_error(monkeypatch, tmp_path):
+    configurar_banco_temporario(monkeypatch, tmp_path)
+    servidor.inicializar_banco()
+
+    with pytest.raises(ToolError, match="inteiro"):
+        servidor.buscar_historico_cliente()
+
+
 @pytest.mark.parametrize("status", ["inexistente", "ABERTO", ""])
 def test_status_invalido_levanta_tool_error(monkeypatch, tmp_path, status):
     db_path = configurar_banco_temporario(monkeypatch, tmp_path)
@@ -154,11 +226,25 @@ def test_cliente_mcp_descobre_e_chama_tool(monkeypatch, tmp_path):
         "criado_em",
         "atualizado_em",
     }
+    entradas_invalidas = [
+        {},
+        {"cliente_id": None},
+        {"cliente_id": True},
+        {"cliente_id": 2.5},
+        {"cliente_id": "2"},
+    ]
 
     async def verificar_cliente():
         async with Client(transporte) as cliente:
             tools = await cliente.list_tools()
-            assert any(tool.name == "listar_chamados" for tool in tools)
+            ferramentas_por_nome = {tool.name: tool for tool in tools}
+            assert "listar_chamados" in ferramentas_por_nome
+            assert "buscar_historico_cliente" in ferramentas_por_nome
+            schema_historico = ferramentas_por_nome[
+                "buscar_historico_cliente"
+            ].input_schema
+            assert schema_historico["properties"]["cliente_id"]["type"] == "integer"
+            assert schema_historico["required"] == ["cliente_id"]
             resultado = await cliente.call_tool("listar_chamados", {})
             assert len(resultado.data) == 3
             assert all(set(chamado) == campos_esperados for chamado in resultado.data)
@@ -173,6 +259,32 @@ def test_cliente_mcp_descobre_e_chama_tool(monkeypatch, tmp_path):
                     and chamado["status"] == status
                     for chamado in filtrados.data
                 )
+
+            historico = await cliente.call_tool(
+                "buscar_historico_cliente", {"cliente_id": 101}
+            )
+            assert len(historico.data) == 2
+            assert all(set(chamado) == campos_esperados for chamado in historico.data)
+            assert all(chamado["cliente_id"] == 101 for chamado in historico.data)
+            assert [(chamado["criado_em"], chamado["id"]) for chamado in historico.data] == sorted(
+                (chamado["criado_em"], chamado["id"])
+                for chamado in historico.data
+            )
+
+            for cliente_id in (99999, 0, -1):
+                historico_vazio = await cliente.call_tool(
+                    "buscar_historico_cliente", {"cliente_id": cliente_id}
+                )
+                assert historico_vazio.data == []
+
+            for argumentos in entradas_invalidas:
+                erro_historico = await cliente.call_tool(
+                    "buscar_historico_cliente",
+                    argumentos,
+                    raise_on_error=False,
+                )
+                assert erro_historico.is_error
+                assert "inteiro" in str(erro_historico.content)
 
             with sqlite3.connect(db_path) as conexao:
                 conexao.execute("DELETE FROM chamados")
