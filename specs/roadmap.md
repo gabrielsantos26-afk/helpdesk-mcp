@@ -27,7 +27,7 @@ requisitos, planejamento e validação em `specs/NN-.../`.
   com vários chamados, ordenação, cliente sem histórico (`[]`), campos de saída
   e ausência de mutações. A Fase 1 continua passando, e os três cenários manuais
   de listagem continuam válidos.
-- **Status:** pendente
+- **Status:** concluída
 
 ## Fase 3: Atualizar status
 - **Tool:** `atualizar_status`.

@@ -37,6 +37,8 @@ sem chamados, retorna uma lista vazia (`[]`), sem erro.
 A atualização de status altera somente `status` e `atualizado_em`. Os campos
 `id`, `cliente_id`, `cliente_nome`, `descricao` e `criado_em` são preservados.
 Este exemplo não mantém histórico ou auditoria das mudanças de status.
+Na tool de atualização, status inválido ou chamado inexistente levanta `ToolError`
+do FastMCP, com mensagem clara; nesses casos, o registro permanece inalterado.
 
 ## Restrições
 - Evitar `print()` em stdout no servidor (stdout é usado pelo protocolo stdio).
