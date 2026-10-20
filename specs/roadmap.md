@@ -35,7 +35,7 @@ requisitos, planejamento e validação em `specs/NN-.../`.
 - **Contrato a implementar:** recebe o identificador do chamado e um status
   permitido (`aberto`, `em_andamento` ou `fechado`). Em sucesso, persiste o novo
   status e atualiza `atualizado_em` em UTC no formato ISO 8601 com fuso horário;
-  retorna uma confirmação identificando o chamado e o status aplicado. A
+  retorna o chamado atualizado. A
   atualização altera somente `status` e `atualizado_em`, preservando `id`,
   `cliente_id`, `cliente_nome`, `descricao` e `criado_em`; não mantém histórico
   de status. Status inválido ou chamado inexistente levanta `ToolError` claro e
@@ -44,4 +44,4 @@ requisitos, planejamento e validação em `specs/NN-.../`.
   atualização do timestamp, status inválido, chamado inexistente e ausência de
   mutação nos casos de erro. A tool é descoberta/chamada via MCP, as Fases 1 e 2
   continuam passando e os cenários manuais anteriores permanecem válidos.
-- **Status:** pendente
+- **Status:** concluída

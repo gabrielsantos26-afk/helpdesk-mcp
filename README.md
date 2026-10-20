@@ -1,7 +1,8 @@
 # helpdesk-mcp
 
-Servidor MCP local para consultar chamados ficticios de helpdesk. As Fases 1 e 2
-disponibilizam as tools `listar_chamados` e `buscar_historico_cliente`.
+Servidor MCP local para consultar e atualizar chamados ficticios de helpdesk.
+As Fases 1, 2 e 3 disponibilizam `listar_chamados`,
+`buscar_historico_cliente` e `atualizar_status`.
 
 > Projeto didático da disciplina GAC126 (PASIA, UFLA), desenvolvido com
 > Spec-Driven Development (SDD).
@@ -37,7 +38,10 @@ novamente.
 
 `listar_chamados` lista todos os registros ou filtra por status. Para consultar
 o historico de um cliente, use `buscar_historico_cliente` com `cliente_id`
-inteiro; clientes sem chamados recebem uma lista vazia.
+inteiro; clientes sem chamados recebem uma lista vazia. Para alterar um chamado,
+use `atualizar_status` com `chamado_id` e `novo_status` (`aberto`,
+`em_andamento` ou `fechado`). A resposta contém o chamado atualizado; erros de
+status ou de chamado inexistente sao informados sem alterar o registro.
 
 Para escolher outro arquivo de banco, defina `HELPDESK_DB_PATH` antes de iniciar:
 
@@ -72,3 +76,4 @@ No Windows PowerShell, ative o ambiente com
 - [`specs/pilha-tecnologia.md`](specs/pilha-tecnologia.md): decisoes tecnicas.
 - [`specs/01-listar-chamados/`](specs/01-listar-chamados/): requisitos, planejamento e validacao da Fase 1.
 - [`specs/02-historico-cliente/`](specs/02-historico-cliente/): requisitos, planejamento e validacao da Fase 2.
+- [`specs/03-atualizar-status/`](specs/03-atualizar-status/): requisitos, planejamento e validacao da Fase 3.

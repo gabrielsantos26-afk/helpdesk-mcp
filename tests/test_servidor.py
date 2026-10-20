@@ -2,6 +2,7 @@ import asyncio
 import os
 import sqlite3
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -194,6 +195,94 @@ def test_cliente_id_ausente_levanta_tool_error(monkeypatch, tmp_path):
         servidor.buscar_historico_cliente()
 
 
+@pytest.mark.parametrize("novo_status", servidor.STATUS_PERMITIDOS)
+def test_atualizar_status_persiste_e_preserva_outros_campos(
+    monkeypatch, tmp_path, novo_status
+):
+    db_path = configurar_banco_temporario(monkeypatch, tmp_path)
+    servidor.inicializar_banco()
+    antes = ler_todos_os_registros(db_path)
+    chamado_antes = next(registro for registro in antes if registro[0] == 1)
+
+    atualizado = servidor.atualizar_status(1, novo_status)
+
+    assert atualizado["status"] == novo_status
+    assert set(atualizado) == {
+        "id",
+        "cliente_id",
+        "cliente_nome",
+        "descricao",
+        "status",
+        "criado_em",
+        "atualizado_em",
+    }
+    depois = ler_todos_os_registros(db_path)
+    chamado_depois = next(registro for registro in depois if registro[0] == 1)
+    assert chamado_depois[:6] == (
+        chamado_antes[0],
+        chamado_antes[1],
+        chamado_antes[2],
+        chamado_antes[3],
+        novo_status,
+        chamado_antes[5],
+    )
+    assert chamado_depois[6] == atualizado["atualizado_em"]
+    assert [registro for registro in depois if registro[0] != 1] == [
+        registro for registro in antes if registro[0] != 1
+    ]
+
+    timestamp = datetime.fromisoformat(atualizado["atualizado_em"])
+    assert timestamp.utcoffset() == timedelta(0)
+    assert abs((datetime.now(timezone.utc) - timestamp).total_seconds()) < 5
+
+    with sqlite3.connect(db_path) as conexao:
+        status_persistido = conexao.execute(
+            "SELECT status FROM chamados WHERE id = ?", (1,)
+        ).fetchone()[0]
+    assert status_persistido == novo_status
+
+
+@pytest.mark.parametrize("novo_status", [None, "inexistente", "ABERTO", ""])
+def test_atualizar_status_invalido_levanta_tool_error_sem_mutacao(
+    monkeypatch, tmp_path, novo_status
+):
+    db_path = configurar_banco_temporario(monkeypatch, tmp_path)
+    servidor.inicializar_banco()
+    antes = ler_todos_os_registros(db_path)
+
+    with pytest.raises(ToolError, match="Status invalido"):
+        servidor.atualizar_status(1, novo_status)
+
+    assert ler_todos_os_registros(db_path) == antes
+
+
+def test_atualizar_status_chamado_inexistente_levanta_tool_error_sem_mutacao(
+    monkeypatch, tmp_path
+):
+    db_path = configurar_banco_temporario(monkeypatch, tmp_path)
+    servidor.inicializar_banco()
+    antes = ler_todos_os_registros(db_path)
+
+    with pytest.raises(ToolError, match="nao encontrado"):
+        servidor.atualizar_status(99999, "fechado")
+
+    assert ler_todos_os_registros(db_path) == antes
+
+
+@pytest.mark.parametrize("chamado_id", [None, True, 1.5, "1"])
+def test_atualizar_status_id_invalido_levanta_tool_error_sem_mutacao(
+    monkeypatch, tmp_path, chamado_id
+):
+    db_path = configurar_banco_temporario(monkeypatch, tmp_path)
+    servidor.inicializar_banco()
+    antes = ler_todos_os_registros(db_path)
+
+    with pytest.raises(ToolError, match="chamado_id"):
+        servidor.atualizar_status(chamado_id, "fechado")
+
+    assert ler_todos_os_registros(db_path) == antes
+
+
 @pytest.mark.parametrize("status", ["inexistente", "ABERTO", ""])
 def test_status_invalido_levanta_tool_error(monkeypatch, tmp_path, status):
     db_path = configurar_banco_temporario(monkeypatch, tmp_path)
@@ -240,11 +329,18 @@ def test_cliente_mcp_descobre_e_chama_tool(monkeypatch, tmp_path):
             ferramentas_por_nome = {tool.name: tool for tool in tools}
             assert "listar_chamados" in ferramentas_por_nome
             assert "buscar_historico_cliente" in ferramentas_por_nome
+            assert "atualizar_status" in ferramentas_por_nome
             schema_historico = ferramentas_por_nome[
                 "buscar_historico_cliente"
             ].input_schema
             assert schema_historico["properties"]["cliente_id"]["type"] == "integer"
             assert schema_historico["required"] == ["cliente_id"]
+            schema_atualizacao = ferramentas_por_nome["atualizar_status"].input_schema
+            assert schema_atualizacao["properties"]["chamado_id"]["type"] == "integer"
+            assert schema_atualizacao["properties"]["novo_status"]["enum"] == list(
+                servidor.STATUS_PERMITIDOS
+            )
+            assert schema_atualizacao["required"] == ["chamado_id", "novo_status"]
             resultado = await cliente.call_tool("listar_chamados", {})
             assert len(resultado.data) == 3
             assert all(set(chamado) == campos_esperados for chamado in resultado.data)
@@ -285,6 +381,34 @@ def test_cliente_mcp_descobre_e_chama_tool(monkeypatch, tmp_path):
                 )
                 assert erro_historico.is_error
                 assert "inteiro" in str(erro_historico.content)
+
+            for novo_status in servidor.STATUS_PERMITIDOS:
+                atualizado = await cliente.call_tool(
+                    "atualizar_status",
+                    {"chamado_id": 1, "novo_status": novo_status},
+                )
+                assert atualizado.data["id"] == 1
+                assert atualizado.data["status"] == novo_status
+                assert atualizado.data["atualizado_em"]
+
+            erro_status = await cliente.call_tool(
+                "atualizar_status",
+                {"chamado_id": 1, "novo_status": "inexistente"},
+                raise_on_error=False,
+            )
+            assert erro_status.is_error
+            assert all(
+                status in str(erro_status.content)
+                for status in servidor.STATUS_PERMITIDOS
+            )
+
+            erro_chamado = await cliente.call_tool(
+                "atualizar_status",
+                {"chamado_id": 99999, "novo_status": "aberto"},
+                raise_on_error=False,
+            )
+            assert erro_chamado.is_error
+            assert "nao encontrado" in str(erro_chamado.content)
 
             with sqlite3.connect(db_path) as conexao:
                 conexao.execute("DELETE FROM chamados")
