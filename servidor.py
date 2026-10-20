@@ -10,6 +10,7 @@ from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
+from fastmcp.tools import FunctionTool
 
 STATUS_PERMITIDOS = ("aberto", "em_andamento", "fechado")
 VARIAVEL_BANCO = "HELPDESK_DB_PATH"
@@ -143,12 +144,21 @@ def listar_chamados(status: str | None = None) -> list[dict[str, Any]]:
     return consultar_chamados(status)
 
 
-@mcp.tool
 def buscar_historico_cliente(cliente_id: Any = None) -> list[dict[str, Any]]:
     """Retorna os chamados do cliente em ordem cronologica deterministica."""
     if type(cliente_id) is not int:
         raise ToolError("cliente_id e obrigatorio e deve ser um numero inteiro.")
     return consultar_historico_cliente(cliente_id)
+
+
+ferramenta_historico_cliente = FunctionTool.from_function(buscar_historico_cliente)
+ferramenta_historico_cliente.parameters = {
+    "type": "object",
+    "properties": {"cliente_id": {"type": "integer"}},
+    "required": ["cliente_id"],
+    "additionalProperties": False,
+}
+mcp.add_tool(ferramenta_historico_cliente)
 
 
 def main() -> None:

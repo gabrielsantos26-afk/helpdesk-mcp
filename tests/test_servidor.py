@@ -237,7 +237,14 @@ def test_cliente_mcp_descobre_e_chama_tool(monkeypatch, tmp_path):
     async def verificar_cliente():
         async with Client(transporte) as cliente:
             tools = await cliente.list_tools()
-            assert any(tool.name == "listar_chamados" for tool in tools)
+            ferramentas_por_nome = {tool.name: tool for tool in tools}
+            assert "listar_chamados" in ferramentas_por_nome
+            assert "buscar_historico_cliente" in ferramentas_por_nome
+            schema_historico = ferramentas_por_nome[
+                "buscar_historico_cliente"
+            ].input_schema
+            assert schema_historico["properties"]["cliente_id"]["type"] == "integer"
+            assert schema_historico["required"] == ["cliente_id"]
             resultado = await cliente.call_tool("listar_chamados", {})
             assert len(resultado.data) == 3
             assert all(set(chamado) == campos_esperados for chamado in resultado.data)
