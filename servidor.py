@@ -161,6 +161,60 @@ ferramenta_historico_cliente.parameters = {
 mcp.add_tool(ferramenta_historico_cliente)
 
 
+def atualizar_status(chamado_id: Any = None, novo_status: Any = None) -> dict[str, Any]:
+    """Atualiza o status de um chamado e retorna o registro atualizado."""
+    if type(chamado_id) is not int:
+        raise ToolError("chamado_id e obrigatorio e deve ser um numero inteiro.")
+    if type(novo_status) is not str or novo_status not in STATUS_PERMITIDOS:
+        status_texto = ", ".join(STATUS_PERMITIDOS)
+        raise ToolError(f"Status invalido. Status aceitos: {status_texto}.")
+
+    atualizado_em = datetime.now(timezone.utc).isoformat()
+    conexao = sqlite3.connect(caminho_banco())
+    conexao.row_factory = sqlite3.Row
+    try:
+        cursor = conexao.execute(
+            """
+            UPDATE chamados
+            SET status = ?, atualizado_em = ?
+            WHERE id = ?
+            """,
+            (novo_status, atualizado_em, chamado_id),
+        )
+        if cursor.rowcount == 0:
+            raise ToolError(f"Chamado {chamado_id} nao encontrado.")
+
+        linha = conexao.execute(
+            """
+            SELECT id, cliente_id, cliente_nome, descricao, status, criado_em, atualizado_em
+            FROM chamados
+            WHERE id = ?
+            """,
+            (chamado_id,),
+        ).fetchone()
+        chamado_atualizado = dict(linha)
+        conexao.commit()
+        return chamado_atualizado
+    except Exception:
+        conexao.rollback()
+        raise
+    finally:
+        conexao.close()
+
+
+ferramenta_atualizar_status = FunctionTool.from_function(atualizar_status)
+ferramenta_atualizar_status.parameters = {
+    "type": "object",
+    "properties": {
+        "chamado_id": {"type": "integer"},
+        "novo_status": {"type": "string", "enum": list(STATUS_PERMITIDOS)},
+    },
+    "required": ["chamado_id", "novo_status"],
+    "additionalProperties": False,
+}
+mcp.add_tool(ferramenta_atualizar_status)
+
+
 def main() -> None:
     inicializar_banco()
     mcp.run(transport="stdio")
